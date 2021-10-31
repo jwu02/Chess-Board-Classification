@@ -1,0 +1,19 @@
+]0;~/assignment/code[01;34m~/assignment/code[00m$ ls
+2021-10-27-190730.term  [0m[01;34mdata[0m  [01;32mevaluate.py[0m  [01;32msystem.py[0m  [01;32mtrain.py[0m  [01;34mutils[0m
+]0;~/assignment/code[01;34m~/assignment/code[00m$ python4 [K[K3 train.py
+Training model with clean data
+Training model with noisy data
+]0;~/assignment/code[01;34m~/assignment/code[00m$ ls[K[Kcd data/
+]0;~/assignment/code/data[01;34m~/assignment/code/data[00m$ ls
+boards.dev.json  boards.train.json  [0m[01;34mclean[0m  [01;31mmodel.clean.json.gz[0m  [01;31mmodel.noisy.json.gz[0m  [01;34mnoisy[0m
+]0;~/assignment/code/data[01;34m~/assignment/code/data[00m$ cd ..
+]0;~/assignment/code[01;34m~/assignment/code[00m$ ls
+2021-10-27-190730.term  [0m[01;34m__pycache__[0m  [01;34mdata[0m  [01;32mevaluate.py[0m  [01;32msystem.py[0m  [01;32mtrain.py[0m  [01;34mutils[0m
+]0;~/assignment/code[01;34m~/assignment/code[00m$ python3 evaluatio[K[Ke.py
+Running evaluation with the clean data.
+Square mode: score = 63.8% correct
+Board mode: score = 63.8% correct
+Running evaluation with the noisy data.
+Square mode: score = 63.8% correct
+Board mode: score = 63.8% correct
+]0;~/assignment/code[01;34m~/assignment/code[00m$ 
