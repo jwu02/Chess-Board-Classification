@@ -11,9 +11,7 @@ version: v1.0
 from typing import List
 
 import numpy as np
-from numpy.lib.function_base import piecewise
-from scipy.stats import distributions, multivariate_normal
-from scipy.stats.stats import mode
+from scipy.stats import multivariate_normal
 
 N_DIMENSIONS = 10
 
@@ -43,9 +41,9 @@ def classify(train: np.ndarray, train_labels: np.ndarray, test: np.ndarray) -> L
 
     distributions = [multivariate_normal(mean=model["means"][i], cov=model["covariances"][i]) for i in range(len(PIECES))]
     # probability of each test sample being in each class
-    probabilities = np.vstack([distributions[i].pdf(model["fvectors_test"]) for i in range(len(PIECES))])
+    # for visualisation, each row is a different class, each column is a test sample
+    probabilities = np.vstack([distributions[i].pdf(test) for i in range(len(PIECES))])
 
-    # for visualisation, rows are classes, columns are test samples
     labelled_indicies = np.argmax(probabilities, axis=0)
     labelled_classes = [PIECES[i] for i in labelled_indicies]
 
@@ -77,11 +75,7 @@ def reduce_dimensions(data: np.ndarray, model: dict) -> np.ndarray:
     # all rows from column 0 to 10
     reduced_data = data[:, 0:N_DIMENSIONS]
 
-    # print(np.cov(reduced_data.T))
     return reduced_data
-
-    # implement for clean data
-    # then generalise to noisy data
 
 
 def process_training_data(fvectors_train: np.ndarray, labels_train: np.ndarray) -> dict:
@@ -109,14 +103,9 @@ def process_training_data(fvectors_train: np.ndarray, labels_train: np.ndarray) 
 
     # separate data for training into different classes
     class_sets = [fvectors_train_reduced[labels_train[:]==piece, :] for piece in PIECES]
-    
-    fvectors_train = [class_sets[i][0::2, :] for i in range(len(PIECES))]
-    fvectors_test = np.vstack([class_sets[i][1::2, :] for i in range(len(PIECES))])
 
-    means = [np.mean(fvectors_train[i][:, :], axis=0).tolist() for i in range(len(PIECES))]
-    covariances = [np.cov(fvectors_train[i][:, :], rowvar=0).tolist() for i in range(len(PIECES))]
-
-    model["fvectors_test"] = fvectors_test.tolist()
+    means = [np.mean(class_sets[i][:, :], axis=0).tolist() for i in range(len(PIECES))]
+    covariances = [np.cov(class_sets[i][:, :], rowvar=0).tolist() for i in range(len(PIECES))]
 
     model["means"] = means
     model["covariances"] = covariances

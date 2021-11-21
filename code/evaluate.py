@@ -63,7 +63,6 @@ def evaluate(image_dir: str, model_data: dict, board_metadata: list) -> Tuple[fl
 
     # Check that teh dimensionality of the reduced feature vectors is correct.
     n_dimensions = fvectors_reduced.shape[1]
-    print(n_dimensions)
     if n_dimensions > EXPECTED_DIMENSIONALITY:
         print(
             f"Error: Your dimensionally reduced feature vector has {n_dimensions} dimensions.",
