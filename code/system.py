@@ -11,10 +11,16 @@ version: v1.0
 from typing import List
 
 import numpy as np
-np.set_printoptions(threshold=np.inf)
+from numpy.lib.function_base import piecewise
+from scipy.stats import distributions, multivariate_normal
+from scipy.stats.stats import mode
 
 N_DIMENSIONS = 10
 
+# uppercase white pieces
+# lowercase black pieces
+# . represents an empty square
+PIECES = [".","K","Q","B","N","R","P","k","q","b","n","r","p"]
 
 def classify(train: np.ndarray, train_labels: np.ndarray, test: np.ndarray) -> List[str]:
     """Classify a set of feature vectors using a training set.
@@ -33,25 +39,17 @@ def classify(train: np.ndarray, train_labels: np.ndarray, test: np.ndarray) -> L
         list[str]: A list of one-character strings representing the labels for each square.
     """
 
-    n_images = test.shape[0]
-    return ["."] * n_images
+    model = process_training_data(train, train_labels)
 
-    def distance(x, y):
-        """ idk """
-        # which features will we use to compare
-        
-        
-    outputLabels = []
-    for testSample in test:
-        lowestDistance = float('inf')
-        for i in range(train.shape[0]):
-            d = distance(testSample, train[i])
-            if d < lowestDistance:
-                lowestDistance = d
-                outputLabel = train_labels[i]
-        outputLabels.append(outputLabel)
+    distributions = [multivariate_normal(mean=model["means"][i], cov=model["covariances"][i]) for i in range(len(PIECES))]
+    # probability of each test sample being in each class
+    probabilities = np.vstack([distributions[i].pdf(model["fvectors_test"]) for i in range(len(PIECES))])
 
-    return outputLabels
+    # for visualisation, rows are classes, columns are test samples
+    labelled_indicies = np.argmax(probabilities, axis=0)
+    labelled_classes = [PIECES[i] for i in labelled_indicies]
+
+    return labelled_classes
 
 
 # The functions below must all be provided in your solution. Think of them
@@ -77,7 +75,8 @@ def reduce_dimensions(data: np.ndarray, model: dict) -> np.ndarray:
         np.ndarray: The reduced feature vectors.
     """
     # all rows from column 0 to 10
-    reduced_data = data[:, 1245:1245+N_DIMENSIONS]
+    reduced_data = data[:, 0:N_DIMENSIONS]
+
     # print(np.cov(reduced_data.T))
     return reduced_data
 
@@ -102,10 +101,26 @@ def process_training_data(fvectors_train: np.ndarray, labels_train: np.ndarray) 
     # The design of this is entirely up to you.
     # Note, if you are using an instance based approach, e.g. a nearest neighbour,
     # then the model will need to store the dimensionally-reduced training data and labels.
+
     model = {}
     model["labels_train"] = labels_train.tolist()
     fvectors_train_reduced = reduce_dimensions(fvectors_train, model)
     model["fvectors_train"] = fvectors_train_reduced.tolist()
+
+    # separate data for training into different classes
+    class_sets = [fvectors_train_reduced[labels_train[:]==piece, :] for piece in PIECES]
+    
+    fvectors_train = [class_sets[i][0::2, :] for i in range(len(PIECES))]
+    fvectors_test = np.vstack([class_sets[i][1::2, :] for i in range(len(PIECES))])
+
+    means = [np.mean(fvectors_train[i][:, :], axis=0).tolist() for i in range(len(PIECES))]
+    covariances = [np.cov(fvectors_train[i][:, :], rowvar=0).tolist() for i in range(len(PIECES))]
+
+    model["fvectors_test"] = fvectors_test.tolist()
+
+    model["means"] = means
+    model["covariances"] = covariances
+    
     return model
 
 
@@ -129,7 +144,7 @@ def images_to_feature_vectors(images: List[np.ndarray]) -> np.ndarray:
         fvectors[i, :] = image.reshape(1, n_features)
 
     # fvectors is a 2d np array of x rows each representing an square image
-    # and y columns representing all the pixels of a square image
+    # and y (50x50=2500) columns representing all the pixels of a square image
     return fvectors
 
 
