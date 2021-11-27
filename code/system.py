@@ -12,6 +12,7 @@ from typing import List
 
 import numpy as np
 from scipy.stats import multivariate_normal
+import scipy.linalg
 
 N_DIMENSIONS = 10
 
@@ -72,10 +73,19 @@ def reduce_dimensions(data: np.ndarray, model: dict) -> np.ndarray:
     Returns:
         np.ndarray: The reduced feature vectors.
     """
-    # all rows from column 0 to 10
-    reduced_data = data[:, 0:N_DIMENSIONS]
 
-    return reduced_data
+    covx = np.cov(data, rowvar=0)
+    N = covx.shape[0]
+
+    # v is the eigenvector of the covariance matrix covx, we need to find the w that maximises cov
+
+    # the function eigh return the eigenvectors (e.g. principal component axes)
+    # as column vectors in the maxtrix v sorted by the eigenvalues w, from smallest to largest
+    w, v = scipy.linalg.eigh(covx, eigvals=(N-10, N - 1)) # return last 10 rows which has biggest eigenvalues
+    v = np.fliplr(v)
+    pcatrain_data = np.dot((data - np.mean(data)), v)
+
+    return pcatrain_data
 
 
 def process_training_data(fvectors_train: np.ndarray, labels_train: np.ndarray) -> dict:
