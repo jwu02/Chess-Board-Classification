@@ -43,7 +43,9 @@ def classify(train: np.ndarray, train_labels: np.ndarray, test: np.ndarray) -> L
     distributions = [multivariate_normal(mean=model["means"][i], cov=model["covariances"][i]) for i in range(len(PIECES))]
     # probability of each test sample being in each class
     # for visualisation, each row is a different class, each column is a test sample
-    probabilities = np.vstack([distributions[i].pdf(test) for i in range(len(PIECES))])
+
+    pcatest_data = np.dot((test - np.mean(test)), np.array(model["A"]))
+    probabilities = np.vstack([distributions[i].pdf(pcatest_data) for i in range(len(PIECES))])
 
     labelled_indicies = np.argmax(probabilities, axis=0)
     labelled_classes = [PIECES[i] for i in labelled_indicies]
@@ -74,16 +76,7 @@ def reduce_dimensions(data: np.ndarray, model: dict) -> np.ndarray:
         np.ndarray: The reduced feature vectors.
     """
 
-    covx = np.cov(data, rowvar=0)
-    N = covx.shape[0]
-
-    # v is the eigenvector of the covariance matrix covx, we need to find the w that maximises cov
-
-    # the function eigh return the eigenvectors (e.g. principal component axes)
-    # as column vectors in the maxtrix v sorted by the eigenvalues w, from smallest to largest
-    w, v = scipy.linalg.eigh(covx, eigvals=(N-10, N - 1)) # return last 10 rows which has biggest eigenvalues
-    v = np.fliplr(v)
-    pcatrain_data = np.dot((data - np.mean(data)), v)
+    pcatrain_data = np.dot((data - np.mean(data)), model["A"])
 
     return pcatrain_data
 
@@ -108,6 +101,19 @@ def process_training_data(fvectors_train: np.ndarray, labels_train: np.ndarray) 
 
     model = {}
     model["labels_train"] = labels_train.tolist()
+
+    covx = np.cov(fvectors_train, rowvar=0)
+    N = covx.shape[0]
+
+    # v is the eigenvector of the covariance matrix covx, we need to find the w that maximises cov
+
+    # the function eigh return the eigenvectors (e.g. principal component axes)
+    # as column vectors in the maxtrix v sorted by the eigenvalues w, from smallest to largest
+    w, v = scipy.linalg.eigh(covx, eigvals=(N-10, N - 1)) # return last 10 rows which has biggest eigenvalues
+    v = np.fliplr(v)
+
+    model["A"] = v.tolist()
+
     fvectors_train_reduced = reduce_dimensions(fvectors_train, model)
     model["fvectors_train"] = fvectors_train_reduced.tolist()
 
