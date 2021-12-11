@@ -1,0 +1,55 @@
+# Chess assignment report
+
+(Replace the square-bracketed text with your own text. *Leave everything else unchanged.* Note, the reports are parsed to check word limits, etc. Changing the format may cause the parsing to fail.)
+
+## Feature Extraction (Max 200 Words)
+
+I have used Principal Component Analysis (PCA) to reduce the dimension. A 
+covariance matrix of the dataset is calculated, in which then the 10 biggest 
+eigenvalues is obtained, which will represent the original data the most 
+accurately after performing matrix multiplication on the original data.
+
+## Classifier (Max 200 Words)
+
+During the training stage, the dataset is split into different classes, a class 
+mean and variance is calculated for each of the datasets, this is stored in the 
+model which is each then used in the classification stage to generate a Gaussian 
+distribution model for each of the classes.
+
+The Gaussian distribtions are then used to classify the individual squares
+during the testing stage, using Bayes' decision method to assign a sample to 
+the class with the biggest probability given.
+
+I initially used the Gaussian approach because I was most familiar with this 
+method, but now that I think about it, a k-nearest neighbour might have been a 
+better approach at classifying the individual squares, since a piece can be on 
+both black and white squares, but during the training stage this was not put 
+into consideration. And if we were to further split the dataset by the class 
+AND the color of a square, we would end up with twice the number of Gaussian 
+distribution models with less training data used for each, resulting in less 
+accuracy.
+
+## Full Board Classification (Max 200 Words)
+
+I wasn't able to move onto the full board classification step but, here some 
+ideas that I have came up with. Since board positions are also given, we can 
+classify some pieces taking into consideration of common positions that they 
+are in, for example kings tends to be near the back (top and bottom) of the 
+board, and are likely to be guarded by pawns around them.
+
+## Performance
+
+My percentage correctness scores (to 1 decimal place) for the development data are as follows.
+
+Clean data:
+
+- Square mode: 97.1%
+- Board mode: 97.1%
+
+Noisy data:
+
+- Square mode: 93.6%
+- Board mode: 93.6%
+
+## Other information (Optional, Max 100 words)
+
