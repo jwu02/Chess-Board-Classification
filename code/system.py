@@ -42,11 +42,20 @@ def classify(train: np.ndarray, train_labels: np.ndarray, test: np.ndarray) -> L
     model = process_training_data(train, train_labels)
 
     distributions = [multivariate_normal(mean=model["means"][i], cov=model["covariances"][i]) for i in range(len(PIECES))]
-    # probability of each test sample being in each class
-    # for visualisation, each row is a different class, each column is a test sample
 
     pcatest_data = np.dot((test - np.mean(test)), np.array(model["A"]))
+
+    # probability of each test sample being in each class
+    # for visualisation, each row is a different class, each column is a test sample
     probabilities = np.vstack([distributions[i].pdf(pcatest_data) for i in range(len(PIECES))])
+
+    # modifying the probabilities by multiply by weighting of occurrences each class in a particular square on the board
+    square_count = 0
+    number_of_boards = len(model["position_occurrences"][0]) # this is the number of training boards
+    for p_coli in range(probabilities.shape[1]):
+        square_count += 1
+        for p_rowi in range(probabilities.shape[0]):
+            probabilities[p_rowi, p_coli] *= (1 + (model["position_occurrences"][square_count % 64].count(PIECES[p_rowi])/number_of_boards))
 
     labelled_indicies = np.argmax(probabilities, axis=0)
     labelled_classes = [PIECES[i] for i in labelled_indicies]
@@ -102,15 +111,24 @@ def process_training_data(fvectors_train: np.ndarray, labels_train: np.ndarray) 
 
     model = {}
     model["labels_train"] = labels_train.tolist()
+
+    # for full board classification
+    # every occurrences of classes in every particular position on the board
+    position_occurrences = [[] for _ in range(64)]
+    for i in range(len(labels_train)):
+        position_occurrences[i % 64].append(labels_train[i])
+
+    model["position_occurrences"] = position_occurrences
     
+    # for PCA
     covx = np.cov(fvectors_train, rowvar=0)
     N = covx.shape[0]
 
-    # v is the eigenvector of the covariance matrix covx, we need to find the w that maximises cov
+    # v is the eigenvector of the covariance matrix covx
 
     # the function eigh return the eigenvectors (e.g. principal component axes)
     # as column vectors in the maxtrix v sorted by the eigenvalues w, from smallest to largest
-    w, v = scipy.linalg.eigh(covx, eigvals=(N-10, N-1)) # return last 10 rows which has biggest eigenvalues
+    w, v = scipy.linalg.eigh(covx, eigvals=(N-N_DIMENSIONS, N-1)) # return largest eigenvalues
     v = np.fliplr(v)
 
     model["A"] = v.tolist()
@@ -196,5 +214,12 @@ def classify_boards(fvectors_test: np.ndarray, model: dict) -> List[str]:
     Returns:
         list[str]: A list of one-character strings representing the labels for each square.
     """
+
+    # an idea that i came up:
+    # construct a list of lists of size 64
+    #   each list stores every label (include duplicates) thats occurred in a particular position
+    #   add probability of occurence of a class to 1, and multiply the probability by the probability a class belongs to a particular Gaussian distribution
+    #   (adding 1 so we don't totally eliminate an probability by multiplying by 0, if there were no occurence of a piece on a particular position)
+    #   classify squares according to modified probabilities
 
     return classify_squares(fvectors_test, model)

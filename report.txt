@@ -5,7 +5,7 @@
 ## Feature Extraction (Max 200 Words)
 
 I have used Principal Component Analysis (PCA) to reduce the dimension. A 
-covariance matrix of the dataset is calculated, in which then the 10 biggest 
+covariance matrix of the dataset is calculated, in which 10 principle 10 biggest 
 eigenvalues is obtained, which will represent the original data the most 
 accurately after performing matrix multiplication on the original data.
 
@@ -31,11 +31,13 @@ accuracy.
 
 ## Full Board Classification (Max 200 Words)
 
-I wasn't able to move onto the full board classification step but, here some 
-ideas that I have came up with. Since board positions are also given, we can 
-classify some pieces taking into consideration of common positions that they 
-are in, for example kings tends to be near the back (top and bottom) of the 
-board, and are likely to be guarded by pawns around them.
+An idea that I came up was
+    - construct a list of lists of size 64, each list stores every label (include duplicates) thats occurred in a particular position
+    - multiply probability of occurence of each class + 1, by the probability of a square belonging to a Gaussian distribution of the corresponding class 
+    - (add 1 so we don't totally eliminate an probability by multiplying by 0, if there were no occurence of a piece on a particular position)
+    - classify squares according to modified probabilities
+
+After implmenting this idea, I was able to increase the accuracy for the clean data by 0.3%.
 
 ## Performance
 
@@ -43,8 +45,8 @@ My percentage correctness scores (to 1 decimal place) for the development data a
 
 Clean data:
 
-- Square mode: 97.1%
-- Board mode: 97.1%
+- Square mode: 97.4%
+- Board mode: 97.4%
 
 Noisy data:
 
