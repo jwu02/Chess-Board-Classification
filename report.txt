@@ -38,13 +38,14 @@ value for k, there's more likelihood of ties in votes.
 
 ## Full Board Classification (Max 200 Words)
 
-An idea that I came up with with, when I was going by the Gaussain approach was
+An idea that I came up with was
     - construct a list of lists of size 64, each list stores every label (include duplicates) thats occurred in a particular position
-    - multiply probability of occurence of each class + 1, by the probability of a square belonging to a Gaussian distribution of the corresponding class 
+    - multiply the weightings of each unique class in k-NN samples by the probability of occurence of each class + 1
     - (add 1 so we don't totally eliminate an probability by multiplying by 0, if there were no occurence of a piece on a particular position)
     - classify squares according to modified probabilities
 
-After implmenting this idea, I was able to increase the accuracy for the clean data by 0.3%.
+After implmenting this idea, I was able to increase the board accuracy, however 
+the square accuracy decreased.
 
 ## Performance
 
@@ -53,12 +54,15 @@ My percentage correctness scores (to 1 decimal place) for the development data a
 Clean data:
 
 - Square mode: 98.4%
-- Board mode: 98.4%
+- Board mode: 98.5%
 
 Noisy data:
 
-- Square mode: 94.5%
-- Board mode: 94.5%
+- Square mode: 94.2%
+- Board mode: 94.8%
 
 ## Other information (Optional, Max 100 words)
 
+I couldn't figure out why but, the classification system gives different results 
+everytime I run it, so when the code is ran on the given data, it may yield 
+slightly different accuracies (+-0.1%) from the ones stated above.

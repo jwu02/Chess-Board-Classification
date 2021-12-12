@@ -104,6 +104,8 @@ def classify(train: np.ndarray, train_labels: np.ndarray, test: np.ndarray) -> L
     # noisy: square = 94.5%, board = 94.5%
     k = 8
     labelled_classes = []
+    square_count = 0
+
     for test_i in range(euclidean_dist.shape[0]):
         # list of k indicies of training samples each test sample is closest to
         k_nearest_i = np.argpartition(euclidean_dist[test_i], k)[:k]
@@ -122,11 +124,23 @@ def classify(train: np.ndarray, train_labels: np.ndarray, test: np.ndarray) -> L
             else:
                 class_dist_mapping[k_nearest_labels[i]] = 1/k_nearest_dist[i]
 
+        # modify weightings according to occurence of piecs in a particular square on the board
+        occurrence_probability_mapping = {}
+        number_of_boards = len(model["position_occurrences"][0]) # this is the number of training boards
+
+        for label in PIECES:
+            occurrence_probability_mapping[label] = 1 + model["position_occurrences"][square_count % 64].count(label) / number_of_boards
+
+        for label in class_dist_mapping.keys():
+            class_dist_mapping[label] *= occurrence_probability_mapping[label]
+
         # label sample with key (class) with biggest weighting
         # (smaller the distance, more similar, the bigger the weighting, hence find max)
         classified_label = max(class_dist_mapping, key=class_dist_mapping.get)
 
         labelled_classes.append(classified_label)
+
+        square_count += 1
 
         """
         print(classified_label)
@@ -216,6 +230,7 @@ def process_training_data(fvectors_train: np.ndarray, labels_train: np.ndarray) 
 
     model["means"] = means
     model["covariances"] = covariances
+    """
 
     # for full board classification
     # every occurrences of classes in every particular position on the board
@@ -224,7 +239,6 @@ def process_training_data(fvectors_train: np.ndarray, labels_train: np.ndarray) 
         position_occurrences[i % 64].append(labels_train[i])
 
     model["position_occurrences"] = position_occurrences
-    """
     
     return model
 
@@ -302,11 +316,13 @@ def classify_boards(fvectors_test: np.ndarray, model: dict) -> List[str]:
         list[str]: A list of one-character strings representing the labels for each square.
     """
 
-    # An idea that I came up with with, when I was going by the Gaussain approach was:
+    # An idea that I came up with, when I was going by the Gaussain approach was:
     # construct a list of lists of size 64
     #   each list stores every label (include duplicates) thats occurred in a particular position
     #   add probability of occurence of a class to 1, and multiply the probability by the probability a class belongs to a particular Gaussian distribution
     #   (adding 1 so we don't totally eliminate an probability by multiplying by 0, if there were no occurence of a piece on a particular position)
     #   classify squares according to modified probabilities
+
+    # The above idea was modifed for k-NN where the weighting system is futher modified to take into account of occurrence of pieces in a square
 
     return classify_squares(fvectors_test, model)
