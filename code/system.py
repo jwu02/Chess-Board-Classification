@@ -8,10 +8,10 @@ produce a very poor result.
 
 version: v1.0
 """
-from re import S
 from typing import List
 
 import numpy as np
+from numpy.lib.function_base import append
 from scipy.stats import multivariate_normal
 from scipy.spatial import distance_matrix
 import scipy.linalg
@@ -45,14 +45,19 @@ def classify(train: np.ndarray, train_labels: np.ndarray, test: np.ndarray) -> L
 
     pcatest_data = np.dot((test - np.mean(test)), np.array(model["A"]))
 
+    """
     # Gaussian distributions
+    # clean: square = 97.1%, board = 97.1%
+    # noisy: square = 93.6%, board = 93.6%
     distributions = [multivariate_normal(mean=model["means"][i], cov=model["covariances"][i]) for i in range(len(PIECES))]
 
     # probability of each test sample being in each class
     # for visualisation, each row is a different class, each column is a test sample
     probabilities = np.vstack([distributions[i].pdf(pcatest_data) for i in range(len(PIECES))])
     
-    # for full board classification
+    # for full board classification with Gaussian
+    # clean: square = 97.4%, board = 97.4%
+    # noisy: square = 93.6%, board = 93.6%
     # modifying the probabilities by multiply by weighting of occurrences each class in a particular square on the board
     square_count = 0
     number_of_boards = len(model["position_occurrences"][0]) # this is the number of training boards
@@ -63,29 +68,55 @@ def classify(train: np.ndarray, train_labels: np.ndarray, test: np.ndarray) -> L
 
     labelled_indicies = np.argmax(probabilities, axis=0)
     labelled_classes = [PIECES[i] for i in labelled_indicies]
+    """
 
     # nearest neighbour
-    # clean: square = 97.4%, board = 97.4%
-    # noisy: square = 91.9%, board = 91.9%
     pcatrain_data = np.array(model["fvectors_train"])
 
     # compact implementation of nearest neighbour without for loop
     x = np.dot(pcatest_data, pcatrain_data.transpose())
 
+    """
     # cosine distance
     # clean: square = 97.4%, board = 97.4%
+    # noisy: square = 91.9%, board = 91.9%
     modtest = np.sqrt(np.sum(pcatest_data * pcatest_data, axis=1))
     modtrain = np.sqrt(np.sum(pcatrain_data * pcatrain_data, axis=1))
     cosine_dist = x / np.outer(modtest, modtrain.transpose())
+    """
 
     # euclidean distance
     # clean: square = 98.1%, board = 98.1%
+    # noisy: square = 91.9%, board = 91.9%
     euclidean_dist = distance_matrix(pcatest_data, pcatrain_data)
 
+    """
+    # normal nearest neighbour
     # list of indicies of train samples each test sample is closest to
     nearest = np.argmin(euclidean_dist, axis=1)
     # labels of closest train samples obtained
     labelled_classes = train_labels[nearest]
+    """
+
+    # k nearest neighbour
+    # k = 8
+    # clean: square = 98.1%, board = 98.1%
+    # noisy: square = 94.5%, board = 94.5%
+    k = 8
+    labelled_classes = []
+    for test_i in range(euclidean_dist.shape[0]):
+        # list of k indicies of training samples each test sample is closest to
+        k_nearest = np.argpartition(euclidean_dist[test_i], k)[:k]
+        k_nearest_labels = train_labels[k_nearest].tolist()
+        class_label = max(set(k_nearest_labels), key=k_nearest_labels.count)
+        labelled_classes.append(class_label)
+
+        """
+        # add test sample to training set so remaining test samples can take into consideration of these
+        np.append(train_labels, class_label)
+        np.append(pcatrain_data, pcatest_data[test_i])
+        euclidean_dist = distance_matrix(pcatest_data, pcatrain_data)
+        """
 
     return labelled_classes
 
@@ -139,14 +170,6 @@ def process_training_data(fvectors_train: np.ndarray, labels_train: np.ndarray) 
 
     model = {}
     model["labels_train"] = labels_train.tolist()
-
-    # for full board classification
-    # every occurrences of classes in every particular position on the board
-    position_occurrences = [[] for _ in range(64)]
-    for i in range(len(labels_train)):
-        position_occurrences[i % 64].append(labels_train[i])
-
-    model["position_occurrences"] = position_occurrences
     
     # dimensionality reduction using PCA
     covx = np.cov(fvectors_train, rowvar=0)
@@ -164,6 +187,8 @@ def process_training_data(fvectors_train: np.ndarray, labels_train: np.ndarray) 
     fvectors_train_reduced = reduce_dimensions(fvectors_train, model)
     model["fvectors_train"] = fvectors_train_reduced.tolist()
 
+    """
+    # data processing for Gaussian
     # separate data for training into different classes
     class_sets = [fvectors_train_reduced[labels_train[:]==piece, :] for piece in PIECES]
 
@@ -173,6 +198,15 @@ def process_training_data(fvectors_train: np.ndarray, labels_train: np.ndarray) 
 
     model["means"] = means
     model["covariances"] = covariances
+
+    # for full board classification
+    # every occurrences of classes in every particular position on the board
+    position_occurrences = [[] for _ in range(64)]
+    for i in range(len(labels_train)):
+        position_occurrences[i % 64].append(labels_train[i])
+
+    model["position_occurrences"] = position_occurrences
+    """
     
     return model
 
@@ -222,6 +256,10 @@ def classify_squares(fvectors_test: np.ndarray, model: dict) -> List[str]:
 
     # Call the classify function.
     labels = classify(fvectors_train, labels_train, fvectors_test)
+
+    # ideas for further improving k-NN:
+    # after a test sample has been classified, add it to the training dataset
+    # classify using a weighting system for each label instead of counting the labels
 
     return labels
 

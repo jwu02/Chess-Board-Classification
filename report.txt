@@ -5,37 +5,32 @@
 ## Feature Extraction (Max 200 Words)
 
 I have used Principal Component Analysis (PCA) to reduce the dimension. A 
-covariance matrix of the dataset is calculated, in which 10 principle 10 biggest 
-eigenvalues is obtained, which will represent the original data the most 
-accurately after performing matrix multiplication on the original data.
+covariance matrix of the dataset is calculated, in which 10 principle axes with 
+the 10 biggest eigenvalues is obtained, which will represent the original data 
+the most accurately after performing matrix multiplication on the original data.
 
 ## Classifier (Max 200 Words)
 
-During the training stage, the dataset is split into different classes, a class 
-mean and variance is calculated for each of the datasets, this is stored in the 
-model which is each then used in the classification stage to generate a Gaussian 
-distribution model for each of the classes.
+I initially used a Gaussian distribution approach because I was most familiar 
+with the method. But after thinking about whether using a k-nearest neighbour 
+classifier would have been a better approach, I came up with the hypothesis 
+that it will be, since a piece can be on both black and white squares, but with 
+the Gaussian approach, this was not put into consideration. And we don’t want 
+to further split the dataset by the classes AND the color of a square, we would 
+end up with twice the number of Gaussian distribution models with less training 
+data used for each, resulting in less accuracy, further splitting a class up 
+doesn’t make any sense in the first place. Whereas a k-NN is able to separate the 
+classes very well with a distance function, even if the pieces are on different 
+colour squares.
 
-The Gaussian distribtions are then used to classify the individual squares
-during the testing stage, using Bayes' decision method to assign a sample to 
-the class with the biggest probability given.
+So I decided to implement a k-NN with an euclidean distance measure to further 
+test my hypothesis, and saw an 1% increase in accuracy for clean data, and a 
+0.9% increase for noisy data, for k=8.
 
-I initially used the Gaussian approach because I was most familiar with this 
-method, but now that I think about it, a k-nearest neighbour might have been a 
-better approach at classifying the individual squares, since a piece can be on 
-both black and white squares, but during the training stage this was not put 
-into consideration. And if we were to further split the dataset by the class 
-AND the color of a square, we would end up with twice the number of Gaussian 
-distribution models with less training data used for each, resulting in less 
-accuracy.
-
-I further implemented a nearest neighbour with euclidean distance, it gave 1% 
-more accuracy for clean data, however 2.5% less accuracy for noisy data, 
-which shows Gaussian to perform very well for noisy data.
 
 ## Full Board Classification (Max 200 Words)
 
-An idea that I came up was
+An idea that I came up with with, when I was going by the Gaussain approach was
     - construct a list of lists of size 64, each list stores every label (include duplicates) thats occurred in a particular position
     - multiply probability of occurence of each class + 1, by the probability of a square belonging to a Gaussian distribution of the corresponding class 
     - (add 1 so we don't totally eliminate an probability by multiplying by 0, if there were no occurence of a piece on a particular position)
@@ -49,13 +44,16 @@ My percentage correctness scores (to 1 decimal place) for the development data a
 
 Clean data:
 
-- Square mode: 97.4%
-- Board mode: 97.4%
+- Square mode: 98.1%
+- Board mode: 98.1%
 
 Noisy data:
 
-- Square mode: 93.6%
-- Board mode: 93.6%
+- Square mode: 94.5%
+- Board mode: 94.5%
 
 ## Other information (Optional, Max 100 words)
 
+I am not sure why but, I get different results everytime I run k-NN with the 
+same k value, so running the classifier on the data given to me, may give 
+slightly different accuracies to the accuracies given above.
