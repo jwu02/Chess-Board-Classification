@@ -99,21 +99,39 @@ def classify(train: np.ndarray, train_labels: np.ndarray, test: np.ndarray) -> L
     """
 
     # k nearest neighbour
-    # k = 8
+    # k = 8, with euclidean distance
     # clean: square = 98.1%, board = 98.1%
     # noisy: square = 94.5%, board = 94.5%
     k = 8
     labelled_classes = []
     for test_i in range(euclidean_dist.shape[0]):
         # list of k indicies of training samples each test sample is closest to
-        k_nearest = np.argpartition(euclidean_dist[test_i], k)[:k]
-        k_nearest_labels = train_labels[k_nearest].tolist()
-        class_label = max(set(k_nearest_labels), key=k_nearest_labels.count)
-        labelled_classes.append(class_label)
+        k_nearest_i = np.argpartition(euclidean_dist[test_i], k)[:k]
+        k_nearest_labels = train_labels[k_nearest_i].tolist()
+
+        # classify using a counting system for each label (most common class in k samples)
+        # classified_label = max(set(k_nearest_labels), key=k_nearest_labels.count)
+
+        k_nearest_dist = euclidean_dist[test_i, k_nearest_i]
+        class_dist_mapping = {}
+        
+        # classify using a weighting system for each label
+        for i in range(len(k_nearest_i)):
+            if k_nearest_labels[i] in class_dist_mapping.keys():
+                class_dist_mapping[k_nearest_labels[i]] += 1/k_nearest_dist[i]
+            else:
+                class_dist_mapping[k_nearest_labels[i]] = 1/k_nearest_dist[i]
+
+        # label sample with key (class) with biggest weighting
+        # (smaller the distance, more similar, the bigger the weighting, hence find max)
+        classified_label = max(class_dist_mapping, key=class_dist_mapping.get)
+
+        labelled_classes.append(classified_label)
 
         """
+        print(classified_label)
         # add test sample to training set so remaining test samples can take into consideration of these
-        np.append(train_labels, class_label)
+        np.append(train_labels, classified_label)
         np.append(pcatrain_data, pcatest_data[test_i])
         euclidean_dist = distance_matrix(pcatest_data, pcatrain_data)
         """
@@ -258,8 +276,10 @@ def classify_squares(fvectors_test: np.ndarray, model: dict) -> List[str]:
     labels = classify(fvectors_train, labels_train, fvectors_test)
 
     # ideas for further improving k-NN:
-    # after a test sample has been classified, add it to the training dataset
-    # classify using a weighting system for each label instead of counting the labels
+    # 1. after a test sample has been classified, add it to the training dataset
+    #   I did manage to implement this, however it was not a very efficient approach and the code takes a long time to run
+    # 2. classify using a weighting system for each label instead of counting the labels
+    #   Successfully implemented and improved accuracy of both clean and noisy data
 
     return labels
 
@@ -282,7 +302,7 @@ def classify_boards(fvectors_test: np.ndarray, model: dict) -> List[str]:
         list[str]: A list of one-character strings representing the labels for each square.
     """
 
-    # an idea that i came up:
+    # An idea that I came up with with, when I was going by the Gaussain approach was:
     # construct a list of lists of size 64
     #   each list stores every label (include duplicates) thats occurred in a particular position
     #   add probability of occurence of a class to 1, and multiply the probability by the probability a class belongs to a particular Gaussian distribution

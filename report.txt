@@ -4,10 +4,15 @@
 
 ## Feature Extraction (Max 200 Words)
 
-I have used Principal Component Analysis (PCA) to reduce the dimension. A 
-covariance matrix of the dataset is calculated, in which 10 principle axes with 
-the 10 biggest eigenvalues is obtained, which will represent the original data 
-the most accurately after performing matrix multiplication on the original data.
+Each board image is initially splitted into 64 sqaures and each square of 
+50x50 pixels is passed into a numpy array and is flattened into an array, 
+to obtain 2500 feature vectors.
+
+I have used Principal Component Analysis (PCA) to reduce the dimension of the 
+feature vector down to 10. A covariance matrix of the dataset is calculated, 
+in which 10 principle axes with the 10 biggest eigenvalues is obtained, which 
+will represent the original data the most accurately after performing matrix 
+multiplication on the original data.
 
 ## Classifier (Max 200 Words)
 
@@ -27,6 +32,9 @@ So I decided to implement a k-NN with an euclidean distance measure to further
 test my hypothesis, and saw an 1% increase in accuracy for clean data, and a 
 0.9% increase for noisy data, for k=8.
 
+I also decided to change the classification strategy of k-NN from using a vote 
+system to a weighting one which is more accuracte, since we are using a small 
+value for k, there's more likelihood of ties in votes.
 
 ## Full Board Classification (Max 200 Words)
 
@@ -44,8 +52,8 @@ My percentage correctness scores (to 1 decimal place) for the development data a
 
 Clean data:
 
-- Square mode: 98.1%
-- Board mode: 98.1%
+- Square mode: 98.4%
+- Board mode: 98.4%
 
 Noisy data:
 
@@ -54,6 +62,3 @@ Noisy data:
 
 ## Other information (Optional, Max 100 words)
 
-I am not sure why but, I get different results everytime I run k-NN with the 
-same k value, so running the classifier on the data given to me, may give 
-slightly different accuracies to the accuracies given above.
