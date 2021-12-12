@@ -29,6 +29,10 @@ AND the color of a square, we would end up with twice the number of Gaussian
 distribution models with less training data used for each, resulting in less 
 accuracy.
 
+I further implemented a nearest neighbour with euclidean distance, it gave 1% 
+more accuracy for clean data, however 2.5% less accuracy for noisy data, 
+which shows Gaussian to perform very well for noisy data.
+
 ## Full Board Classification (Max 200 Words)
 
 An idea that I came up was
