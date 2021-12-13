@@ -9,10 +9,11 @@ Each board image is initially splitted into 64 sqaures and each square of
 to obtain 2500 feature vectors.
 
 I have used Principal Component Analysis (PCA) to reduce the dimension of the 
-feature vector down to 10. A covariance matrix of the dataset is calculated, 
-in which 10 principle axes with the 10 biggest eigenvalues is obtained, which 
-will represent the original data the most accurately after performing matrix 
-multiplication on the original data.
+feature vector down to 10. A covariance matrix of the training set is calculated 
+to obtain 10 eigenvectors (principle component axes), this is our linear 
+transform matrix, the eigenvectors correponds to the 10 biggest eigenvalues. 
+The dimension of the test set is then reduced after multiplying the linear 
+transform matrix by it.
 
 ## Classifier (Max 200 Words)
 
@@ -33,8 +34,8 @@ test my hypothesis, and saw an 1% increase in accuracy for clean data, and a
 0.9% increase for noisy data, for k=8.
 
 I also decided to change the classification strategy of k-NN from using a vote 
-system to a weighting one which is more accurate, since we are using a small 
-value for k, there's more likelihood of ties in votes.
+system, to combining it with a weighting one which is more accurate, since we 
+are using a small value for k, there's more likelihood of ties in votes.
 
 ## Full Board Classification (Max 200 Words)
 
@@ -50,6 +51,16 @@ An idea that I came up with was
 After implmenting this idea, I was able to increase the board accuracy, however 
 this also caused the square accuracy to decrease.
 
+I also tried modifying the weightings of black or white labels according to 
+whether the current board position is towards the bottom (increase weighting of 
+white pieces) or top (otherwise increase black label weightings), which has shown 
+to exceed previous performances, although unconsistent.
+
+Another idea I had was on a board, there can't be a more than a certain number occurrences for 
+each class, for example, there can't be more than 1 white kings, more than 2 
+black rooks, etc. We can use this information to determine if there were any 
+misclassified pieces and reclassify potenitally misclassified sqaures.
+
 ## Performance
 
 My percentage correctness scores (to 1 decimal place) for the development data are as follows.
@@ -57,15 +68,15 @@ My percentage correctness scores (to 1 decimal place) for the development data a
 Clean data:
 
 - Square mode: 98.4%
-- Board mode: 98.5%
+- Board mode: 98.4%
 
 Noisy data:
 
-- Square mode: 94.2%
-- Board mode: 94.8%
+- Square mode: 94.6%
+- Board mode: 94.9%
 
 ## Other information (Optional, Max 100 words)
 
-I couldn't figure out why but, the classification system gives different results 
+I couldn't figure out why but the classification system gives different results 
 everytime I run it, so when the code is ran on the given data, it may yield 
-slightly different accuracies (+-0.2%) from the ones stated above.
+slightly different accuracies from the ones stated above.

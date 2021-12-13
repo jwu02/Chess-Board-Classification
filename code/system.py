@@ -11,6 +11,7 @@ version: v1.0
 from typing import List
 
 import numpy as np
+from numpy.core.fromnumeric import shape
 from numpy.lib.function_base import append
 from scipy.stats import multivariate_normal
 from scipy.spatial import distance_matrix
@@ -21,7 +22,7 @@ N_DIMENSIONS = 10
 # uppercase white pieces
 # lowercase black pieces
 # . represents an empty square
-PIECES = [".","K","Q","B","N","R","P","k","q","b","n","r","p"]
+PIECES = {".":64, "K":1, "Q":1, "B":2, "N":2, "R":2, "P":8, "k":1, "q":1, "b":2, "n":2, "r":2, "p":8}
 
 def classify(train: np.ndarray, train_labels: np.ndarray, test: np.ndarray) -> List[str]:
     """Classify a set of feature vectors using a training set.
@@ -42,17 +43,17 @@ def classify(train: np.ndarray, train_labels: np.ndarray, test: np.ndarray) -> L
 
     model = process_training_data(train, train_labels)
 
-    pcatest_data = np.dot((test - np.mean(test)), np.array(model["A"]))
+    pcatest_data = np.dot((test - np.mean(test)), np.array(model["linear_transform_matrix"]))
 
     """
     # Gaussian distributions
     # clean: square = 97.1%, board = 97.1%
     # noisy: square = 93.6%, board = 93.6%
-    distributions = [multivariate_normal(mean=model["means"][i], cov=model["covariances"][i]) for i in range(len(PIECES))]
+    distributions = [multivariate_normal(mean=model["means"][i], cov=model["covariances"][i]) for i in range(len(PIECES.keys()))]
 
     # probability of each test sample being in each class
     # for visualisation, each row is a different class, each column is a test sample
-    probabilities = np.vstack([distributions[i].pdf(pcatest_data) for i in range(len(PIECES))])
+    probabilities = np.vstack([distributions[i].pdf(pcatest_data) for i in range(len(PIECES.keys()))])
     
     # for full board classification with Gaussian
     # clean: square = 97.4%, board = 97.4%
@@ -63,43 +64,26 @@ def classify(train: np.ndarray, train_labels: np.ndarray, test: np.ndarray) -> L
     for p_coli in range(probabilities.shape[1]):
         square_count += 1
         for p_rowi in range(probabilities.shape[0]):
-            probabilities[p_rowi, p_coli] *= 1 + model["position_occurrences"][square_count % 64].count(PIECES[p_rowi]) / number_of_boards
+            probabilities[p_rowi, p_coli] *= 1 + model["position_occurrences"][square_count % 64].count(PIECES.keys()[p_rowi]) / number_of_boards
 
     labelled_indicies = np.argmax(probabilities, axis=0)
-    labelled_classes = [PIECES[i] for i in labelled_indicies]
+    labelled_classes = [PIECES.keys()[i] for i in labelled_indicies]
     """
-
-    # nearest neighbour
-    pcatrain_data = np.array(model["fvectors_train"])
-
-    # compact implementation of nearest neighbour without for loop
-    x = np.dot(pcatest_data, pcatrain_data.transpose())
-
-    """
-    # cosine distance
-    modtest = np.sqrt(np.sum(pcatest_data * pcatest_data, axis=1))
-    modtrain = np.sqrt(np.sum(pcatrain_data * pcatrain_data, axis=1))
-    cosine_dist = x / np.outer(modtest, modtrain.transpose())
-    """
-
-    # euclidean distance
-    euclidean_dist = distance_matrix(pcatest_data, pcatrain_data)
 
     # k nearest neighbour
-    # k = 8, with euclidean distance
-    # clean: square = 98.4%, board = 98.5%
-    # noisy: square = 94.2%, board = 94.8%
-    k = 8
+    pcatrain_data = np.array(model["fvectors_train"])
+
+    # euclidean distance measure
+    euclidean_dist = distance_matrix(pcatest_data, pcatrain_data)
+
+    k = 8 # this value of k seems to give the best performance
     labelled_classes = []
-    square_count = 0
+    square_count = 0 # used to calcuate position on board of square we are currently classifying
 
     for test_i in range(euclidean_dist.shape[0]):
         # list of k indicies of training samples each test sample is closest to
         k_nearest_i = np.argpartition(euclidean_dist[test_i], k)[:k]
         k_nearest_labels = train_labels[k_nearest_i].tolist()
-
-        # classify using a counting system for each label (most common class in k samples)
-        # classified_label = max(set(k_nearest_labels), key=k_nearest_labels.count)
 
         # classify using a weighting system for each label
         k_nearest_dist = euclidean_dist[test_i, k_nearest_i]
@@ -111,14 +95,49 @@ def classify(train: np.ndarray, train_labels: np.ndarray, test: np.ndarray) -> L
             else:
                 class_dist_mapping[k_nearest_labels[i]] = 1/k_nearest_dist[i]
 
-        # modify weightings according to occurence of piecs in a particular square on the board
-        number_of_boards = len(model["position_occurrences"][0]) # this is the number of training boards
+        # modify weightings for each class also considering count on number of labels
         for label in class_dist_mapping.keys():
-            class_dist_mapping[label] *= 1 + model["position_occurrences"][square_count % 64].count(label) / number_of_boards
+            class_dist_mapping[label] *= k_nearest_labels.count(label)
+
+        # taking into consideration of full board
+        # modify weightings
+        number_of_boards = len(model["position_occurrences"][0]) # this is the number of training boards
+        board_position = square_count % 64 # board position as a number between 0-63
+        for label in class_dist_mapping.keys():
+            #modify weightings according to occurence of pieces on a particular position
+            class_dist_mapping[label] *= 1 + model["position_occurrences"][board_position].count(label) / number_of_boards
+            
+            # modify weightings of white or black according to current position, nearer top or bottom of board respectively
+            position_weighting = 1
+            if label != ".":
+                if board_position < 8 and label.islower():
+                    position_weighting += 0.4
+                elif board_position < 16 and label.islower():
+                    position_weighting += 0.3
+                elif board_position < 24 and label.islower():
+                    position_weighting += 0.2
+                elif board_position < 32 and label.islower():
+                    position_weighting += 0.1
+                elif board_position < 40 and label.isupper():
+                    position_weighting += 0.1
+                elif board_position < 48 and label.isupper():
+                    position_weighting += 0.2
+                elif board_position < 56 and label.isupper():
+                    position_weighting += 0.3
+                elif board_position < 64 and label.isupper():
+                    position_weighting += 0.4
+            
+            class_dist_mapping[label] *= position_weighting
+                
+
 
         # label sample with key (class) with biggest weighting
         # (smaller the distance, more similar, the bigger the weighting, hence find max)
         classified_label = max(class_dist_mapping, key=class_dist_mapping.get)
+
+        # classify using a counting system for each label (most common class in k samples)
+        # classified_label = max(set(k_nearest_labels), key=k_nearest_labels.count)
+
         labelled_classes.append(classified_label)
 
         square_count += 1
@@ -150,7 +169,7 @@ def reduce_dimensions(data: np.ndarray, model: dict) -> np.ndarray:
     """
     
     # dimensionality reduction using PCA
-    pcatrain_data = np.dot((data - np.mean(data)), model["A"])
+    pcatrain_data = np.dot((data - np.mean(data)), model["linear_transform_matrix"])
 
     return pcatrain_data
 
@@ -180,14 +199,15 @@ def process_training_data(fvectors_train: np.ndarray, labels_train: np.ndarray) 
     covx = np.cov(fvectors_train, rowvar=0)
     N = covx.shape[0]
 
-    # v is the eigenvector of the covariance matrix covx
-
-    # the function eigh return the eigenvectors (e.g. principal component axes)
-    # as column vectors in the maxtrix v sorted by the eigenvalues w, from smallest to largest
-    w, v = scipy.linalg.eigh(covx, eigvals=(N-N_DIMENSIONS, N-1)) # return largest eigenvalues
+    # w is a list of eigenvalues ordered in ascending order
+    # each w corresponds to an eigenvector of the covariance matrix in v
+    # an eigenvector is basically a principal component axis
+    # we want the eigenvectors which corresponds to the biggest eigenvalues, so the last 10
+    w, v = scipy.linalg.eigh(covx, eigvals=(N-N_DIMENSIONS, N-1))
     v = np.fliplr(v)
 
-    model["A"] = v.tolist()
+    # v is an linear transform matrix used to reduce the dimension of the original data
+    model["linear_transform_matrix"] = v.tolist()
     
     fvectors_train_reduced = reduce_dimensions(fvectors_train, model)
     model["fvectors_train"] = fvectors_train_reduced.tolist()
@@ -195,14 +215,42 @@ def process_training_data(fvectors_train: np.ndarray, labels_train: np.ndarray) 
     """
     # data processing for Gaussian
     # separate data for training into different classes
-    class_sets = [fvectors_train_reduced[labels_train[:]==piece, :] for piece in PIECES]
+    class_sets = [fvectors_train_reduced[labels_train[:]==piece, :] for piece in PIECES.keys()]
 
     # parameters for classification with Gaussian distributions
-    means = [np.mean(class_sets[i][:, :], axis=0).tolist() for i in range(len(PIECES))]
-    covariances = [np.cov(class_sets[i][:, :], rowvar=0).tolist() for i in range(len(PIECES))]
+    means = [np.mean(class_sets[i][:, :], axis=0).tolist() for i in range(len(PIECES.keys()))]
+    covariances = [np.cov(class_sets[i][:, :], rowvar=0).tolist() for i in range(len(PIECES.keys()))]
 
     model["means"] = means
     model["covariances"] = covariances
+    """
+
+    """
+    # Hart Algorithm - reduce training set (and labels)
+    prototypes_train = fvectors_train_reduced[0].reshape(1,N_DIMENSIONS)
+    fvectors_train_reduced = np.delete(fvectors_train_reduced, 0, 0)
+
+    prototypes_label = labels_train[0]
+    labels_train = np.delete(labels_train, 0, 0)
+
+    counter = 0
+    i = fvectors_train_reduced.shape[0]
+
+    while counter < i:
+        classified_label = classify(prototypes_train, prototypes_label, fvectors_train_reduced[i].reshape(1,N_DIMENSIONS))
+        if (classified_label != labels_train[i]):
+            prototypes_train = np.append(prototypes_train, fvectors_train_reduced[i])
+            fvectors_train_reduced = np.delete(fvectors_train_reduced, i, 0)
+
+            prototypes_label = np.append(prototypes_label, labels_train[i])
+            labels_train = np.delete(labels_train, i, 0)
+
+            counter = 0
+            i = fvectors_train_reduced.shape[0]
+        else:
+            counter += 1
+    
+    model["fvectors_train"] = prototypes_train.tolist()
     """
 
     # for full board classification
@@ -265,8 +313,9 @@ def classify_squares(fvectors_test: np.ndarray, model: dict) -> List[str]:
     # ideas for further improving k-NN:
     # 1. classify using a weighting system for each label instead of counting the labels
     #   Successfully implemented and improved accuracy of both clean and noisy data
-    # 2. using Hart algorithm to reduce the dataset while preserving the underlying decision boundaries
-
+    # 2. multiply weightings by count of labels to combine the voting system
+    # 3. using Hart algorithm to reduce number of training samples while preserving the underlying decision boundaries
+    
     return labels
 
 
@@ -293,5 +342,29 @@ def classify_boards(fvectors_test: np.ndarray, model: dict) -> List[str]:
     #   multiply the weightings of each unique class in k-NN samples by the probability of occurence of each class + 1
     #   (add 1 so we don't totally eliminate an probability by multiplying by 0, if there were no occurence of a piece on a particular position)
     #   classify squares according to modified probabilities
+    #   this was implemented in classify()
 
-    return classify_squares(fvectors_test, model)
+    # on a board, there can't be a more than a certain number occurrences for each class
+    #   there can't be more than 1 white kings, more than 2 black rooks, etc
+    
+    # top half of the board are more likely to be black pieces and bottom half, white pieces
+    # as we get closer to the top/bottom board positions when we classify, multiply weightings
+    # by a specific factor
+
+    # pieces tends to be closer to and play around with their own pieces, espically kings
+    # rooks, bishops, knights and queens can be an exception
+
+    # implement chess game logic restrictions to identify potentially misclassified pieces
+    # how do we know which one is misclassified? compare probability of belonging to a class
+    
+    labels = classify_squares(fvectors_test, model)
+
+    # representing class labels as actual boards
+    # array of shape n x 64, each row represents a board
+    boards_flattened = np.array(labels).reshape(len(labels)//64, 64)
+
+    boards = []
+    for i in range(boards_flattened.shape[0]):
+        boards.append(boards_flattened[i].reshape(8, 8))
+
+    return labels
