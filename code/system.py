@@ -41,36 +41,10 @@ def classify(train: np.ndarray, train_labels: np.ndarray, test: np.ndarray) -> L
         list[str]: A list of one-character strings representing the labels for each square.
     """
 
+    # classification with k nearest neighbour approach (current approach)
     model = process_training_data(train, train_labels)
 
     pcatest_data = np.dot((test - np.mean(test)), np.array(model["linear_transform_matrix"]))
-
-    """
-    # Gaussian distributions
-    # clean: square = 97.1%, board = 97.1%
-    # noisy: square = 93.6%, board = 93.6%
-    distributions = [multivariate_normal(mean=model["means"][i], cov=model["covariances"][i]) for i in range(len(PIECES.keys()))]
-
-    # probability of each test sample being in each class
-    # for visualisation, each row is a different class, each column is a test sample
-    probabilities = np.vstack([distributions[i].pdf(pcatest_data) for i in range(len(PIECES.keys()))])
-    
-    # for full board classification with Gaussian
-    # clean: square = 97.4%, board = 97.4%
-    # noisy: square = 93.6%, board = 93.6%
-    # modifying the probabilities by multiply by weighting of occurrences each class in a particular square on the board
-    square_count = 0
-    number_of_boards = len(model["position_occurrences"][0]) # this is the number of training boards
-    for p_coli in range(probabilities.shape[1]):
-        square_count += 1
-        for p_rowi in range(probabilities.shape[0]):
-            probabilities[p_rowi, p_coli] *= 1 + model["position_occurrences"][square_count % 64].count(PIECES.keys()[p_rowi]) / number_of_boards
-
-    labelled_indicies = np.argmax(probabilities, axis=0)
-    labelled_classes = [PIECES.keys()[i] for i in labelled_indicies]
-    """
-
-    # k nearest neighbour
     pcatrain_data = np.array(model["fvectors_train"])
 
     # euclidean distance measure
@@ -102,34 +76,35 @@ def classify(train: np.ndarray, train_labels: np.ndarray, test: np.ndarray) -> L
         # taking into consideration of full board
         # modify weightings
         number_of_boards = len(model["position_occurrences"][0]) # this is the number of training boards
-        board_position = square_count % 64 # board position as a number between 0-63
+        current_position = square_count % 64 # board position as a number between 0-63
         for label in class_dist_mapping.keys():
-            #modify weightings according to occurence of pieces on a particular position
-            class_dist_mapping[label] *= 1 + model["position_occurrences"][board_position].count(label) / number_of_boards
+            # modify weightings according to occurence of pieces on a particular position
+            occurrence_probability = model["position_occurrences"][current_position].count(label) / number_of_boards
+            class_dist_mapping[label] *= 1 + occurrence_probability
             
-            # modify weightings of white or black according to current position, nearer top or bottom of board respectively
+            # modify weightings of white or black labels according to current position, nearer top or bottom of board respectively
             position_weighting = 1
             if label != ".":
-                if board_position < 8 and label.islower():
+                # top half of board
+                if current_position < 8 and label.islower():
+                    position_weighting += 0.8
+                elif current_position < 16 and label.islower():
+                    position_weighting += 0.6
+                elif current_position < 24 and label.islower():
                     position_weighting += 0.4
-                elif board_position < 16 and label.islower():
-                    position_weighting += 0.3
-                elif board_position < 24 and label.islower():
+                elif current_position < 32 and label.islower():
                     position_weighting += 0.2
-                elif board_position < 32 and label.islower():
-                    position_weighting += 0.1
-                elif board_position < 40 and label.isupper():
-                    position_weighting += 0.1
-                elif board_position < 48 and label.isupper():
+                # bottom half of board
+                elif current_position < 40 and label.isupper():
                     position_weighting += 0.2
-                elif board_position < 56 and label.isupper():
-                    position_weighting += 0.3
-                elif board_position < 64 and label.isupper():
+                elif current_position < 48 and label.isupper():
                     position_weighting += 0.4
+                elif current_position < 56 and label.isupper():
+                    position_weighting += 0.6
+                elif current_position < 64 and label.isupper():
+                    position_weighting += 0.8
             
             class_dist_mapping[label] *= position_weighting
-                
-
 
         # label sample with key (class) with biggest weighting
         # (smaller the distance, more similar, the bigger the weighting, hence find max)
@@ -141,6 +116,98 @@ def classify(train: np.ndarray, train_labels: np.ndarray, test: np.ndarray) -> L
         labelled_classes.append(classified_label)
 
         square_count += 1
+
+    # return classify_gaussian(train, train_labels, test) # uncomment line to return gaussian results
+    # return classify_nn(train, train_labels, test) # uncomment line to return nearest neighbour results
+
+    return labelled_classes
+
+
+def classify_gaussian(train: np.ndarray, train_labels: np.ndarray, test: np.ndarray) -> List[str]:
+    """Classification with Gaussian approach.
+
+    Previous approach, function not called.
+    
+    Args:
+        train (np.ndarray): 2-D array storing the training feature vectors.
+        train_labels (np.ndarray): 1-D array storing the training labels.
+        test (np.ndarray): 2-D array storing the test feature vectors.
+
+    Returns:
+        list[str]: A list of one-character strings representing the labels for each square.
+    """
+
+    model = process_training_data(train, train_labels)
+
+    pcatest_data = np.dot((test - np.mean(test)), np.array(model["linear_transform_matrix"]))
+
+    # clean: square = 97.1%, board = 97.1%
+    # noisy: square = 93.6%, board = 93.6%
+    distributions = [multivariate_normal(mean=model["means"][i], cov=model["covariances"][i]) for i in range(len(PIECES.keys()))]
+
+    # probability of each test sample being in each class
+    # for visualisation, each row is a different class, each column is a test sample
+    probabilities = np.vstack([distributions[i].pdf(pcatest_data) for i in range(len(PIECES.keys()))])
+    
+    # for full board classification
+    # clean: square = 97.4%, board = 97.4%
+    # noisy: square = 93.6%, board = 93.6%
+    # modifying the probabilities by multiply by weighting of occurrences each class in a particular square on the board
+    square_count = 0
+    number_of_boards = len(model["position_occurrences"][0]) # this is the number of training boards
+    for p_coli in range(probabilities.shape[1]):
+        square_count += 1
+        for p_rowi in range(probabilities.shape[0]):
+            occurrence_probability = model["position_occurrences"][square_count % 64].count(list(PIECES.keys())[p_rowi]) / number_of_boards
+            probabilities[p_rowi, p_coli] *= 1 + occurrence_probability
+
+    labelled_indicies = np.argmax(probabilities, axis=0)
+    labelled_classes = [list(PIECES.keys())[i] for i in labelled_indicies]
+
+    return labelled_classes
+
+
+def classify_nn(train: np.ndarray, train_labels: np.ndarray, test: np.ndarray) -> List[str]:
+    """Classification with nearest neighbour approach.
+
+    Previous approach, function not called. Further adapted to k-NN and further 
+    improved full board classification.
+    
+    Equivalent to k-NN when k=1.
+    
+    Args:
+        train (np.ndarray): 2-D array storing the training feature vectors.
+        train_labels (np.ndarray): 1-D array storing the training labels.
+        test (np.ndarray): 2-D array storing the test feature vectors.
+
+    Returns:
+        list[str]: A list of one-character strings representing the labels for each square.
+    """
+
+    model = process_training_data(train, train_labels)
+
+    pcatest_data = np.dot((test - np.mean(test)), np.array(model["linear_transform_matrix"]))
+    pcatrain_data = np.array(model["fvectors_train"])
+
+    # compact implementation of nearest neighbour without for loop
+    x = np.dot(pcatest_data, pcatrain_data.transpose())
+
+    # cosine distance
+    # clean: square = 97.4%, board = 97.4%
+    # noisy: square = 91.9%, board = 91.9%
+    modtest = np.sqrt(np.sum(pcatest_data * pcatest_data, axis=1))
+    modtrain = np.sqrt(np.sum(pcatrain_data * pcatrain_data, axis=1))
+    cosine_dist = x / np.outer(modtest, modtrain.transpose())
+
+    # euclidean distance
+    # clean: square = 98.1%, board = 98.1%
+    # noisy: square = 91.9%, board = 91.9%
+    euclidean_dist = distance_matrix(pcatest_data, pcatrain_data)
+
+    # list of indicies of train samples each test sample is closest to
+    nearest = np.argmin(euclidean_dist, axis=1)
+    # labels of closest train samples obtained
+    labelled_classes = train_labels[nearest]
 
     return labelled_classes
 
@@ -212,7 +279,6 @@ def process_training_data(fvectors_train: np.ndarray, labels_train: np.ndarray) 
     fvectors_train_reduced = reduce_dimensions(fvectors_train, model)
     model["fvectors_train"] = fvectors_train_reduced.tolist()
 
-    """
     # data processing for Gaussian
     # separate data for training into different classes
     class_sets = [fvectors_train_reduced[labels_train[:]==piece, :] for piece in PIECES.keys()]
@@ -223,35 +289,6 @@ def process_training_data(fvectors_train: np.ndarray, labels_train: np.ndarray) 
 
     model["means"] = means
     model["covariances"] = covariances
-    """
-
-    """
-    # Hart Algorithm - reduce training set (and labels)
-    prototypes_train = fvectors_train_reduced[0].reshape(1,N_DIMENSIONS)
-    fvectors_train_reduced = np.delete(fvectors_train_reduced, 0, 0)
-
-    prototypes_label = labels_train[0]
-    labels_train = np.delete(labels_train, 0, 0)
-
-    counter = 0
-    i = fvectors_train_reduced.shape[0]
-
-    while counter < i:
-        classified_label = classify(prototypes_train, prototypes_label, fvectors_train_reduced[i].reshape(1,N_DIMENSIONS))
-        if (classified_label != labels_train[i]):
-            prototypes_train = np.append(prototypes_train, fvectors_train_reduced[i])
-            fvectors_train_reduced = np.delete(fvectors_train_reduced, i, 0)
-
-            prototypes_label = np.append(prototypes_label, labels_train[i])
-            labels_train = np.delete(labels_train, i, 0)
-
-            counter = 0
-            i = fvectors_train_reduced.shape[0]
-        else:
-            counter += 1
-    
-    model["fvectors_train"] = prototypes_train.tolist()
-    """
 
     # for full board classification
     # every occurrences of classes in every particular position on the board
@@ -312,9 +349,9 @@ def classify_squares(fvectors_test: np.ndarray, model: dict) -> List[str]:
 
     # ideas for further improving k-NN:
     # 1. classify using a weighting system for each label instead of counting the labels
-    #   Successfully implemented and improved accuracy of both clean and noisy data
+    #   this was implemented and improved accuracy of both clean and noisy data
     # 2. multiply weightings by count of labels to combine the voting system
-    # 3. using Hart algorithm to reduce number of training samples while preserving the underlying decision boundaries
+    #   this was implemented
     
     return labels
 
@@ -337,34 +374,31 @@ def classify_boards(fvectors_test: np.ndarray, model: dict) -> List[str]:
         list[str]: A list of one-character strings representing the labels for each square.
     """
 
-    # An idea that I came up with was
-    #   construct a list of lists of size 64, each list stores every label (include duplicates) thats occurred in a particular position
-    #   multiply the weightings of each unique class in k-NN samples by the probability of occurence of each class + 1
-    #   (add 1 so we don't totally eliminate an probability by multiplying by 0, if there were no occurence of a piece on a particular position)
-    #   classify squares according to modified probabilities
-    #   this was implemented in classify()
+    # Here are some ideas that I came up with:
 
-    # on a board, there can't be a more than a certain number occurrences for each class
-    #   there can't be more than 1 white kings, more than 2 black rooks, etc
-    
-    # top half of the board are more likely to be black pieces and bottom half, white pieces
-    # as we get closer to the top/bottom board positions when we classify, multiply weightings
-    # by a specific factor
+    # construct a list of lists of size 64, each list stores every label (include duplicates) thats occurred in a particular position
+    # multiply the weightings of each unique class in k-NN samples by the probability of occurence of each class + 1
+    # (add 1 so we don't totally eliminate an probability by multiplying by 0, if there were no occurence of a piece on a particular position)
+    # classify squares according to modified probabilities
+    # this was implemented
 
-    # pieces tends to be closer to and play around with their own pieces, espically kings
-    # rooks, bishops, knights and queens can be an exception
+    # top half of the board are more likely to be black pieces and bottom half 
+    # white pieces, as we get closer to the top/bottom board positions when we 
+    # classify, multiply weightings by a specific factor
+    # this was implemented
+
+    # pieces tends to be closer to and play around with their own pieces,
+    # espically kings, the others can have an exception
+
+    # to generalize the two idea above, need system to learn general locations of 
+    # specific pieces and where they play around
+
+    # on a board, there can't be a more than a certain number of occurrences for each class
+    # there can't be more than 1 white kings, more than 2 black rooks, etc
 
     # implement chess game logic restrictions to identify potentially misclassified pieces
     # how do we know which one is misclassified? compare probability of belonging to a class
     
     labels = classify_squares(fvectors_test, model)
-
-    # representing class labels as actual boards
-    # array of shape n x 64, each row represents a board
-    boards_flattened = np.array(labels).reshape(len(labels)//64, 64)
-
-    boards = []
-    for i in range(boards_flattened.shape[0]):
-        boards.append(boards_flattened[i].reshape(8, 8))
 
     return labels

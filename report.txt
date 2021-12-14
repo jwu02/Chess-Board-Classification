@@ -56,10 +56,10 @@ whether the current board position is towards the bottom (increase weighting of
 white pieces) or top (otherwise increase black label weightings), which has shown 
 to exceed previous performances, although unconsistent.
 
-Another idea I had was on a board, there can't be a more than a certain number occurrences for 
-each class, for example, there can't be more than 1 white kings, more than 2 
-black rooks, etc. We can use this information to determine if there were any 
-misclassified pieces and reclassify potenitally misclassified sqaures.
+Another idea I had was on a board, there can't be a more than a certain number 
+occurrences for each class, for example, there can't be more than 1 white kings, 
+more than 2 black rooks, etc. We can use this information to determine if there 
+were any misclassified pieces and reclassify potenitally misclassified sqaures.
 
 ## Performance
 
